@@ -1,0 +1,11 @@
+D:\CandleWise\obj\Docker\publish\CandleWise.exe
+D:\CandleWise\obj\Docker\publish\appsettings.Development.json
+D:\CandleWise\obj\Docker\publish\appsettings.json
+D:\CandleWise\obj\Docker\publish\CandleWise.dll
+D:\CandleWise\obj\Docker\publish\CandleWise.deps.json
+D:\CandleWise\obj\Docker\publish\CandleWise.runtimeconfig.json
+D:\CandleWise\obj\Docker\publish\CandleWise.pdb
+D:\CandleWise\obj\Docker\publish\Microsoft.OpenApi.dll
+D:\CandleWise\obj\Docker\publish\Swashbuckle.AspNetCore.Swagger.dll
+D:\CandleWise\obj\Docker\publish\Swashbuckle.AspNetCore.SwaggerGen.dll
+D:\CandleWise\obj\Docker\publish\Swashbuckle.AspNetCore.SwaggerUI.dll
