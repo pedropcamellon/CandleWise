@@ -6,6 +6,8 @@
 
 CandleWise has evolved from a simple stock price tracker into a comprehensive **Portfolio Management System** that helps users track their investments, monitor performance, and manage their stock portfolios with real-time market data.
 
+[![Deploy Frontend to Vercel](https://github.com/pedropcamellon/CandleWise/actions/workflows/deploy-frontend.yml/badge.svg?branch=main)](https://github.com/pedropcamellon/CandleWise/actions/workflows/deploy-frontend.yml)
+
 ## ✨ Key Features
 
 ### 📈 Portfolio Management
