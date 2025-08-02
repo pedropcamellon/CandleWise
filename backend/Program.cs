@@ -22,13 +22,26 @@ builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<AlpacaMarketDataService>();
 builder.Services.AddSingleton<AlpacaMarketDataService>();
 
+// Add Health Checks
+builder.Services.AddHealthChecks();
+
 // Add CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000")
+            // Allow multiple origins for different environments
+            var allowedOrigins = new[]
+            {
+                "http://localhost:3000",
+                "https://localhost:3000",
+                "https://candlewise.vercel.app",
+                "https://candlewise-*.vercel.app" // Allow Vercel preview deployments
+            };
+
+            policy.WithOrigins(allowedOrigins)
+                  .SetIsOriginAllowedToAllowWildcardSubdomains()
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -51,6 +64,9 @@ app.UseCors("AllowFrontend");
 // app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+// Add health check endpoint
+app.MapHealthChecks("/health");
 
 app.MapControllers();
 

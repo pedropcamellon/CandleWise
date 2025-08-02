@@ -29,3 +29,29 @@ logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Terraform
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+
+# Azure
+.azure/
+
+# Next.js
+.next/
+build/
+
+# Vercel
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
