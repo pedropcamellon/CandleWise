@@ -1,7 +1,7 @@
 {
   "name": "candlewise-monorepo",
   "version": "1.0.0",
-  "description": "CandleWise Stock Exchange System - ASP.NET Core 6 + Next.js",
+  "description": "CandleWise - Portfolio Management",
   "private": true,
   "workspaces": [
     "frontend"
@@ -32,6 +32,6 @@
     "real-time-data",
     "financial-api"
   ],
-  "author": "Pedro PC Amellon",
+  "author": "Pedro Camellon",
   "license": "MIT"
 }
