@@ -93,6 +93,11 @@ jobs:
         run: |
           echo "app_service_name=$(terraform output -raw app_service_name)" >> $GITHUB_OUTPUT
           echo "resource_group_name=$(terraform output -raw resource_group_name)" >> $GITHUB_OUTPUT
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     outputs:
       app_service_name: ${{ steps.terraform-outputs.outputs.app_service_name }}
