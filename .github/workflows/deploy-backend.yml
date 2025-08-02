@@ -52,11 +52,7 @@ jobs:
 
       - name: Terraform Init
         run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ secrets.TERRAFORM_STATE_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.TERRAFORM_STATE_SA }}" \
-            -backend-config="container_name=${{ secrets.TERRAFORM_STATE_CONTAINER }}" \
-            -backend-config="key=candlewise-${{ github.event.inputs.environment || 'dev' }}.tfstate"
+          terraform init
         env:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
