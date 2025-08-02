@@ -13,7 +13,7 @@ export default function StockChart({ symbol, companyName, priceHistory }: StockC
     // Filter data to show only the last 10 minutes (600 seconds)
     const now = new Date();
     const cutoffTime = new Date(now.getTime() - 10 * 60 * 1000); // Last 10 minutes
-    
+
     const filteredHistory = priceHistory
         .filter(point => new Date(point.timestamp) >= cutoffTime)
         .slice(-60); // Keep only last 60 points (10 minutes at 10-second intervals)    // Format data for the chart
@@ -32,7 +32,7 @@ export default function StockChart({ symbol, companyName, priceHistory }: StockC
     return (
         <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
             <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-gray-900">{companyName} Price History (Last 10 Minutes)</h3>
+                <h3 className="text-lg font-bold text-gray-900">{companyName} ({symbol}) Price History (Last 10 Minutes)</h3>
             </div>
 
             <div className="h-64">
@@ -50,7 +50,7 @@ export default function StockChart({ symbol, companyName, priceHistory }: StockC
                                 domain={['dataMin - 0.5', 'dataMax + 0.5']}
                             />
                             <Tooltip
-                                formatter={(value: any) => [`$${value.toFixed(2)}`, 'Price']}
+                                formatter={(value: number) => [`$${value.toFixed(2)}`, 'Price']}
                                 labelStyle={{ color: '#374151' }}
                                 contentStyle={{
                                     backgroundColor: '#f9fafb',

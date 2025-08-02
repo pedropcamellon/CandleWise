@@ -1,4 +1,4 @@
-import { Stock, ApiResponse, StockHistoryPoint } from '../../../shared/types';
+import { Stock } from '../../../shared/types';
 
 // Now calling Next.js API routes instead of .NET Core directly
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';

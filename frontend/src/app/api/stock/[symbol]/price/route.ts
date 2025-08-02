@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 const DOTNET_API_URL = process.env.DOTNET_API_URL || 'http://localhost:5245/api';
 
 export async function GET(
-    request: NextRequest,
-    { params }: { params: { symbol: string } }
+    request: Request,
+    { params }: { params: Promise<{ symbol: string }> }
 ) {
     try {
-        const { symbol } = params;
-
+        const { symbol } = await params;
         if (!symbol) {
             return NextResponse.json(
                 { error: 'Stock symbol is required' },
@@ -25,22 +24,22 @@ export async function GET(
 
         if (!response.ok) {
             console.error(`Failed to fetch price for ${symbol}: ${response.status} ${response.statusText}`);
-            
+
             // Handle specific error cases
             if (response.status === 400) {
                 const errorData = await response.json().catch(() => ({}));
                 if (errorData.error === 'API_CREDENTIALS_MISSING') {
                     console.error('Alpaca API credentials missing:', errorData.message);
                     return NextResponse.json(
-                        { 
-                            error: 'API_CREDENTIALS_MISSING', 
-                            message: errorData.message || 'Alpaca API credentials are not configured. Please add your API keys to the backend configuration.' 
+                        {
+                            error: 'API_CREDENTIALS_MISSING',
+                            message: errorData.message || 'Alpaca API credentials are not configured. Please add your API keys to the backend configuration.'
                         },
                         { status: 400 }
                     );
                 }
             }
-            
+
             return NextResponse.json(
                 { error: `Failed to fetch price for ${symbol}` },
                 { status: response.status }

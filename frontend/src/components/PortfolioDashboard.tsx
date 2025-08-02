@@ -5,7 +5,6 @@ import {
     Portfolio,
     PortfolioHolding,
     PortfolioSummary,
-    AllocationBreakdown,
     StockHistoryPoint
 } from '../../../shared/types';
 import { PortfolioService } from '@/services/portfolioService';
@@ -159,11 +158,11 @@ function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCar
     }, [fetchPriceUpdate]);
 
     const gainLossColor = gainLoss >= 0 ? 'text-green-600' : 'text-red-600';
-    const priceChangeColor = priceDirection === 'up' ? 'text-green-600' : 
-                           priceDirection === 'down' ? 'text-red-600' : 'text-gray-900';
+    const priceChangeColor = priceDirection === 'up' ? 'text-green-600' :
+        priceDirection === 'down' ? 'text-red-600' : 'text-gray-900';
 
     return (
-        <div 
+        <div
             ref={cardRef}
             className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-all duration-200"
         >
@@ -257,7 +256,7 @@ export default function PortfolioDashboard() {
     const [selectedHolding, setSelectedHolding] = useState<PortfolioHolding | null>(null);
     const [priceHistory, setPriceHistory] = useState<Record<string, StockHistoryPoint[]>>({});
     const [showAddHolding, setShowAddHolding] = useState(false);
-    
+
     // Optimized state for individual card updates
     const priceUpdateTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
     const lastSuccessfulPrices = useRef<Record<string, number>>({});
@@ -353,6 +352,8 @@ export default function PortfolioDashboard() {
 
     const handleAddHolding = () => {
         setShowAddHolding(true);
+
+        console.log('Add new holding:', showAddHolding);
     };
 
     // Initial portfolio data fetch with optimized price updates
@@ -369,7 +370,7 @@ export default function PortfolioDashboard() {
                 portfolioData.holdings.map(async (holding) => {
                     try {
                         const currentPrice = await StockService.getStockPrice(holding.symbol);
-                        
+
                         // Store successful price for fallback
                         lastSuccessfulPrices.current[holding.symbol] = currentPrice;
 
