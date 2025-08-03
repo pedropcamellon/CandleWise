@@ -16,18 +16,18 @@ namespace CandleWise.Controllers
             _httpClientFactory = httpClientFactory;
         }
 
-        // ============== DEMO DATA ENDPOINTS ==============
-        // These will be replaced with real database operations
+        // ============== DEFAULT PORTFOLIO ENDPOINTS ==============
+        // These provide sample data for development, will be enhanced with real database operations
 
-        [HttpGet("demo")]
-        public async Task<IActionResult> GetDemoPortfolio()
+        [HttpGet("default")]
+        public IActionResult GetDefaultPortfolio()
         {
             try
             {
-                var demoPortfolio = new Portfolio
+                var defaultPortfolio = new Portfolio
                 {
-                    Id = "demo-portfolio-1",
-                    UserId = "demo-user-1",
+                    Id = "portfolio-1",
+                    UserId = "user-1",
                     Name = "My Investment Portfolio",
                     Description = "Long-term growth focused portfolio",
                     TotalValue = 12750.00m,
@@ -40,85 +40,88 @@ namespace CandleWise.Controllers
                         new PortfolioHolding
                         {
                             Id = "holding-1",
-                            PortfolioId = "demo-portfolio-1",
+                            PortfolioId = "portfolio-1",
                             Symbol = "AAPL",
-                            CompanyName = "Apple Inc.",
                             Shares = 50,
                             AverageCostBasis = 180.00m,
-                            CurrentPrice = 195.00m,
-                            MarketValue = 9750.00m,
-                            TotalCost = 9000.00m,
-                            GainLoss = 750.00m,
-                            GainLossPercent = 8.33m,
-                            AllocationPercent = 76.47m,
                             CreatedAt = DateTime.Parse("2024-01-15"),
                             UpdatedAt = DateTime.UtcNow,
                         },
                         new PortfolioHolding
                         {
                             Id = "holding-2",
-                            PortfolioId = "demo-portfolio-1",
+                            PortfolioId = "portfolio-1",
                             Symbol = "GOOGL",
-                            CompanyName = "Alphabet Inc.",
                             Shares = 10,
                             AverageCostBasis = 250.00m,
-                            CurrentPrice = 300.00m,
-                            MarketValue = 3000.00m,
-                            TotalCost = 2500.00m,
-                            GainLoss = 500.00m,
-                            GainLossPercent = 20.00m,
-                            AllocationPercent = 23.53m,
                             CreatedAt = DateTime.Parse("2024-02-01"),
                             UpdatedAt = DateTime.UtcNow,
                         },
                     }
                 };
 
-                return Ok(new { data = demoPortfolio, success = true });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching demo portfolio");
-                return StatusCode(500, new { success = false, message = "Internal server error" });
-            }
-        }
-
-        [HttpGet("demo/summary")]
-        public async Task<IActionResult> GetDemoSummary()
-        {
-            try
-            {
-                var demoSummary = new PortfolioSummaryDto
+                // Add summary data directly to the portfolio object
+                // Map holdings to simplified structure with allocation calculation
+                var holdingsWithMarketValue = defaultPortfolio.Holdings.Select(h => new
                 {
-                    TotalValue = 12750.00m,
+                    Holding = h,
+                    MarketValue = h.Symbol == "AAPL" ? h.Shares * 195.00m :
+                                 h.Symbol == "GOOGL" ? h.Shares * 300.00m : h.Shares * h.AverageCostBasis
+                }).ToList();
+
+                var totalMarketValue = holdingsWithMarketValue.Sum(h => h.MarketValue);
+
+                var simplifiedHoldings = holdingsWithMarketValue.Select(item =>
+                {
+                    var allocationPercent = totalMarketValue > 0 ? (item.MarketValue / totalMarketValue) * 100 : 0;
+
+                    return new
+                    {
+                        Id = item.Holding.Id,
+                        PortfolioId = item.Holding.PortfolioId,
+                        Symbol = item.Holding.Symbol,
+                        Shares = item.Holding.Shares,
+                        AverageCostBasis = item.Holding.AverageCostBasis,
+                        AllocationPercent = allocationPercent,
+                        CreatedAt = item.Holding.CreatedAt,
+                        UpdatedAt = item.Holding.UpdatedAt
+                    };
+                }).ToList();
+
+                var portfolioData = new
+                {
+                    Id = defaultPortfolio.Id,
+                    UserId = defaultPortfolio.UserId,
+                    Name = defaultPortfolio.Name,
+                    Description = defaultPortfolio.Description,
+                    TotalValue = totalMarketValue,
                     TotalCost = 11500.00m,
-                    TotalGainLoss = 1250.00m,
-                    TotalGainLossPercent = 10.87m,
+                    TotalGainLoss = totalMarketValue - 11500.00m,
+                    TotalGainLossPercent = ((totalMarketValue - 11500.00m) / 11500.00m) * 100,
                     DayChange = 125.50m,
                     DayChangePercent = 0.99m,
-                    TopPerformer = new TopPerformerDto
-                    {
-                        Symbol = "GOOGL",
-                        GainLossPercent = 20.00m,
-                    },
-                    TopLoser = null,
+                    TopPerformer = new { Symbol = "GOOGL", GainLossPercent = 20.00m },
+                    TopLoser = (object?)null,
+                    CreatedAt = defaultPortfolio.CreatedAt,
+                    UpdatedAt = defaultPortfolio.UpdatedAt,
+                    Holdings = simplifiedHoldings
                 };
 
-                return Ok(new { data = demoSummary, success = true });
+                return Ok(portfolioData);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching demo summary");
-                return StatusCode(500, new { success = false, message = "Internal server error" });
+                _logger.LogError(ex, "Error fetching default portfolio");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
-        [HttpGet("demo/allocation")]
-        public async Task<IActionResult> GetDemoAllocation()
+        [HttpGet("default/allocation")]
+        public IActionResult GetDefaultPortfolioAllocation()
         {
             try
             {
-                var demoAllocation = new List<AllocationBreakdownDto>
+                var allocation = new List<AllocationBreakdownDto>
                 {
                     new AllocationBreakdownDto
                     {
@@ -136,12 +139,12 @@ namespace CandleWise.Controllers
                     },
                 };
 
-                return Ok(new { data = demoAllocation, success = true });
+                return Ok(allocation);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching demo allocation");
-                return StatusCode(500, new { success = false, message = "Internal server error" });
+                _logger.LogError(ex, "Error fetching allocation breakdown");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
