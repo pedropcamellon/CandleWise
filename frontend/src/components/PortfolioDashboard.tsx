@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Portfolio,
     PortfolioHolding,
-    PortfolioSummary,
     StockHistoryPoint
 } from '../../../shared/types';
 import { PortfolioService } from '@/services/portfolioService';
@@ -12,18 +11,18 @@ import { StockService } from '@/services/stockService';
 import StockChart from './StockChart';
 
 interface PortfolioSummaryCardProps {
-    summary: PortfolioSummary;
+    portfolio: Portfolio;
 }
 
-function PortfolioSummaryCard({ summary }: PortfolioSummaryCardProps) {
-    const [currentSummary, setCurrentSummary] = useState(summary);
+function PortfolioSummaryCard({ portfolio }: PortfolioSummaryCardProps) {
+    const [currentPortfolio, setCurrentPortfolio] = useState(portfolio);
 
     useEffect(() => {
-        setCurrentSummary(summary);
-    }, [summary]);
+        setCurrentPortfolio(portfolio);
+    }, [portfolio]);
 
-    const gainLossColor = currentSummary.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600';
-    const dayChangeColor = currentSummary.dayChange >= 0 ? 'text-green-600' : 'text-red-600';
+    const gainLossColor = currentPortfolio.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600';
+    const dayChangeColor = currentPortfolio.dayChange >= 0 ? 'text-green-600' : 'text-red-600';
 
     return (
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg p-6 text-white">
@@ -31,12 +30,12 @@ function PortfolioSummaryCard({ summary }: PortfolioSummaryCardProps) {
                 {/* Total Portfolio Value */}
                 <div className="text-center">
                     <h3 className="text-lg font-medium opacity-90">Total Portfolio Value</h3>
-                    <p className="text-3xl font-bold mt-2">${currentSummary.totalValue.toLocaleString()}</p>
-                    {currentSummary.dayChange !== undefined && currentSummary.dayChangePercent !== undefined ? (
+                    <p className="text-3xl font-bold mt-2">${currentPortfolio.totalValue.toLocaleString()}</p>
+                    {currentPortfolio.dayChange !== undefined && currentPortfolio.dayChangePercent !== undefined ? (
                         <div className={`flex items-center justify-center mt-2 ${dayChangeColor}`}>
                             <span className="text-sm">
-                                {currentSummary.dayChange >= 0 ? '+' : ''}${currentSummary.dayChange.toFixed(2)}
-                                ({currentSummary.dayChangePercent >= 0 ? '+' : ''}{currentSummary.dayChangePercent.toFixed(2)}%) today
+                                {currentPortfolio.dayChange >= 0 ? '+' : ''}${currentPortfolio.dayChange.toFixed(2)}
+                                ({currentPortfolio.dayChangePercent >= 0 ? '+' : ''}{currentPortfolio.dayChangePercent.toFixed(2)}%) today
                             </span>
                         </div>
                     ) : (
@@ -48,11 +47,11 @@ function PortfolioSummaryCard({ summary }: PortfolioSummaryCardProps) {
                 <div className="text-center">
                     <h3 className="text-lg font-medium opacity-90">Total Gain/Loss</h3>
                     <p className={`text-3xl font-bold mt-2 ${gainLossColor}`}>
-                        {currentSummary.totalGainLoss >= 0 ? '+' : ''}${currentSummary.totalGainLoss.toLocaleString()}
+                        {currentPortfolio.totalGainLoss >= 0 ? '+' : ''}${currentPortfolio.totalGainLoss.toLocaleString()}
                     </p>
                     <div className={`mt-2 ${gainLossColor}`}>
                         <span className="text-sm">
-                            ({currentSummary.totalGainLossPercent >= 0 ? '+' : ''}{currentSummary.totalGainLossPercent.toFixed(2)}%)
+                            ({currentPortfolio.totalGainLossPercent >= 0 ? '+' : ''}{currentPortfolio.totalGainLossPercent.toFixed(2)}%)
                         </span>
                     </div>
                 </div>
@@ -60,11 +59,11 @@ function PortfolioSummaryCard({ summary }: PortfolioSummaryCardProps) {
                 {/* Performance Highlights */}
                 <div className="text-center">
                     <h3 className="text-lg font-medium opacity-90">Top Performer</h3>
-                    {summary.topPerformer ? (
+                    {currentPortfolio.topPerformer ? (
                         <div className="mt-2">
-                            <p className="text-xl font-bold">{summary.topPerformer.symbol}</p>
+                            <p className="text-xl font-bold">{currentPortfolio.topPerformer.symbol}</p>
                             <p className="text-green-400 text-sm">
-                                +{summary.topPerformer.gainLossPercent.toFixed(2)}%
+                                +{currentPortfolio.topPerformer.gainLossPercent.toFixed(2)}%
                             </p>
                         </div>
                     ) : (
@@ -80,25 +79,42 @@ interface HoldingCardProps {
     holding: PortfolioHolding;
     onShowChart: (holding: PortfolioHolding) => void;
     onEdit: (holding: PortfolioHolding) => void;
-    onPriceUpdate?: (symbol: string, newPrice: number) => void;
+    onManualRefresh: (symbol: string) => void;
 }
 
-function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCardProps) {
-    const [currentPrice, setCurrentPrice] = useState(holding.currentPrice);
-    const [marketValue, setMarketValue] = useState(holding.marketValue);
-    const [gainLoss, setGainLoss] = useState(holding.gainLoss);
-    const [gainLossPercent, setGainLossPercent] = useState(holding.gainLossPercent);
-    const [isUpdating, setIsUpdating] = useState(false);
-    const [priceDirection, setPriceDirection] = useState<'up' | 'down' | 'same'>('same');
+function HoldingCard({ holding, onShowChart, onEdit, onManualRefresh }: HoldingCardProps) {
+    // Calculate initial values from simplified holding
+    const totalCost = holding.shares * holding.averageCostBasis;
+    const initialPrice = (holding as any).currentPrice || holding.averageCostBasis;
+    const initialMarketValue = (holding as any).marketValue || totalCost;
+    const initialGainLoss = (holding as any).gainLoss || 0;
+    const initialGainLossPercent = (holding as any).gainLossPercent || 0;
+    const companyName = (holding as any).companyName || holding.symbol;
 
-    const previousPriceRef = useRef(currentPrice);
+    const [currentPrice, setCurrentPrice] = useState(initialPrice);
+    const [marketValue, setMarketValue] = useState(initialMarketValue);
+    const [gainLoss, setGainLoss] = useState(initialGainLoss);
+    const [gainLossPercent, setGainLossPercent] = useState(initialGainLossPercent);
+    const [priceDirection, setPriceDirection] = useState<'up' | 'down' | 'same'>('same');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const previousPriceRef = useRef(initialPrice);
     const cardRef = useRef<HTMLDivElement>(null);
 
-    // Update calculations when price changes
-    const updateCalculations = useCallback((newPrice: number) => {
-        const newMarketValue = holding.shares * newPrice;
-        const newGainLoss = newMarketValue - holding.totalCost;
-        const newGainLossPercent = (newGainLoss / holding.totalCost) * 100;
+    // Manual refresh for individual holding
+    const handleManualRefresh = async () => {
+        if (isRefreshing) return;
+        setIsRefreshing(true);
+        await onManualRefresh(holding.symbol);
+        setIsRefreshing(false);
+    };
+
+    // Update local state when holding prop changes (from parent price updates)
+    useEffect(() => {
+        const newPrice = (holding as any).currentPrice || holding.averageCostBasis;
+        const newMarketValue = (holding as any).marketValue || holding.shares * holding.averageCostBasis;
+        const newGainLoss = (holding as any).gainLoss || 0;
+        const newGainLossPercent = (holding as any).gainLossPercent || 0;
 
         // Determine price direction for visual feedback
         if (newPrice > previousPriceRef.current) {
@@ -114,10 +130,8 @@ function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCar
         setGainLoss(newGainLoss);
         setGainLossPercent(newGainLossPercent);
 
-        previousPriceRef.current = newPrice;
-
-        // Add flash effect
-        if (cardRef.current) {
+        // Add flash effect when price changes
+        if (newPrice !== previousPriceRef.current && cardRef.current) {
             cardRef.current.classList.add('ring-2', 'ring-blue-400', 'ring-opacity-75');
             setTimeout(() => {
                 if (cardRef.current) {
@@ -126,36 +140,8 @@ function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCar
             }, 1000);
         }
 
-        // Notify parent component
-        onPriceUpdate?.(holding.symbol, newPrice);
-    }, [holding.shares, holding.totalCost, holding.symbol, onPriceUpdate]);
-
-    // Fetch real-time price update for this specific holding
-    const fetchPriceUpdate = useCallback(async () => {
-        if (isUpdating) return;
-
-        try {
-            setIsUpdating(true);
-            const price = await StockService.getStockPrice(holding.symbol);
-            if (price && price !== currentPrice) {
-                updateCalculations(price);
-            }
-        } catch (error) {
-            console.error(`Error updating price for ${holding.symbol}:`, error);
-            // Show specific error message for API credentials
-            if (error instanceof Error && error.message.includes('Alpaca API Configuration Error')) {
-                console.error('API Configuration Issue:', error.message);
-            }
-        } finally {
-            setIsUpdating(false);
-        }
-    }, [holding.symbol, currentPrice, isUpdating, updateCalculations]);
-
-    // Auto-update every 30 seconds
-    useEffect(() => {
-        const interval = setInterval(fetchPriceUpdate, 30000);
-        return () => clearInterval(interval);
-    }, [fetchPriceUpdate]);
+        previousPriceRef.current = newPrice;
+    }, [holding]);
 
     const gainLossColor = gainLoss >= 0 ? 'text-green-600' : 'text-red-600';
     const priceChangeColor = priceDirection === 'up' ? 'text-green-600' :
@@ -170,16 +156,13 @@ function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCar
             <div className="flex justify-between items-start mb-4">
                 <div>
                     <h3 className="text-xl font-bold text-gray-900">{holding.symbol}</h3>
-                    <p className="text-gray-600 text-sm">{holding.companyName}</p>
+                    <p className="text-gray-600 text-sm">{companyName}</p>
                 </div>
                 <div className="text-right">
                     <div className="flex items-center space-x-2">
                         <span className={`text-lg font-bold ${priceChangeColor}`}>
                             ${currentPrice.toFixed(2)}
                         </span>
-                        {isUpdating && (
-                            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                        )}
                     </div>
                     <div className="flex items-center justify-end mt-1">
                         {priceDirection === 'up' && <span className="text-green-600 text-sm">↗</span>}
@@ -237,11 +220,11 @@ function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCar
                     ✏️ Edit
                 </button>
                 <button
-                    onClick={fetchPriceUpdate}
-                    disabled={isUpdating}
+                    onClick={handleManualRefresh}
+                    disabled={isRefreshing}
                     className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm disabled:opacity-50"
                 >
-                    {isUpdating ? '↻' : '⟳'}
+                    {isRefreshing ? '↻' : '⟳'}
                 </button>
             </div>
         </div>
@@ -250,94 +233,155 @@ function HoldingCard({ holding, onShowChart, onEdit, onPriceUpdate }: HoldingCar
 
 export default function PortfolioDashboard() {
     const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
-    const [summary, setSummary] = useState<PortfolioSummary | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedHolding, setSelectedHolding] = useState<PortfolioHolding | null>(null);
     const [priceHistory, setPriceHistory] = useState<Record<string, StockHistoryPoint[]>>({});
     const [showAddHolding, setShowAddHolding] = useState(false);
+    const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
 
-    // Optimized state for individual card updates
-    const priceUpdateTimeouts = useRef<Record<string, NodeJS.Timeout>>({});
+    // Optimized state for price updates
     const lastSuccessfulPrices = useRef<Record<string, number>>({});
+    const priceUpdateIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Optimized price update callback for individual holdings
-    const handlePriceUpdate = useCallback(async (symbol: string): Promise<number | null> => {
-        try {
-            // Clear existing timeout for this symbol
-            if (priceUpdateTimeouts.current[symbol]) {
-                clearTimeout(priceUpdateTimeouts.current[symbol]);
-            }
+    // Update price history based on price results
+    const updatePriceHistory = useCallback((priceResults: Array<{ symbol: string; price: number }>, timestamp: string) => {
+        setPriceHistory(prevHistory => {
+            const newHistory = { ...prevHistory };
 
-            const newPrice = await StockService.getStockPrice(symbol);
+            priceResults.forEach(({ symbol, price }) => {
+                if (!newHistory[symbol]) {
+                    newHistory[symbol] = [];
+                }
 
-            // Store successful price for fallback
-            lastSuccessfulPrices.current[symbol] = newPrice;
-
-            // Update the specific holding in portfolio
-            setPortfolio(prev => {
-                if (!prev) return prev;
-
-                const updatedHoldings = prev.holdings.map(holding => {
-                    if (holding.symbol === symbol) {
-                        const updatedMarketValue = holding.shares * newPrice;
-                        const updatedGainLoss = updatedMarketValue - holding.totalCost;
-                        const updatedGainLossPercent = (updatedGainLoss / holding.totalCost) * 100;
-
-                        return {
-                            ...holding,
-                            currentPrice: newPrice,
-                            marketValue: updatedMarketValue,
-                            gainLoss: updatedGainLoss,
-                            gainLossPercent: updatedGainLossPercent,
-                        };
-                    }
-                    return holding;
+                newHistory[symbol].push({
+                    timestamp,
+                    price
                 });
 
-                // Recalculate portfolio totals
-                const totalMarketValue = updatedHoldings.reduce((sum, holding) => sum + holding.marketValue, 0);
-                const totalCost = updatedHoldings.reduce((sum, holding) => sum + holding.totalCost, 0);
-                const totalGainLoss = totalMarketValue - totalCost;
-                const totalGainLossPercent = (totalGainLoss / totalCost) * 100;
-
-                // Update allocation percentages
-                const holdingsWithAllocation = updatedHoldings.map(holding => ({
-                    ...holding,
-                    allocationPercent: (holding.marketValue / totalMarketValue) * 100,
-                }));
-
-                // Update summary as well
-                setSummary(prevSummary => prevSummary ? {
-                    ...prevSummary,
-                    totalValue: totalMarketValue,
-                    totalGainLoss,
-                    totalGainLossPercent,
-                } : null);
-
-                return {
-                    ...prev,
-                    holdings: holdingsWithAllocation,
-                    totalValue: totalMarketValue,
-                    totalGainLoss,
-                    totalGainLossPercent,
-                };
+                // Keep only last 60 points (10 minutes at 10-second intervals)
+                if (newHistory[symbol].length > 60) {
+                    newHistory[symbol] = newHistory[symbol].slice(-60);
+                }
             });
 
-            // Set up automatic refresh for this symbol
-            priceUpdateTimeouts.current[symbol] = setTimeout(() => {
-                handlePriceUpdate(symbol);
-            }, 30000); // 30 seconds
-
-            return newPrice;
-        } catch (error) {
-            console.error(`Error updating price for ${symbol}:`, error);
-            // Return last successful price if available
-            return lastSuccessfulPrices.current[symbol] || null;
-        }
+            return newHistory;
+        });
     }, []);
 
-    const handleShowChart = (holding: PortfolioHolding) => {
+    // Update portfolio based on price results
+    const updatePortfolioWithPrices = useCallback((priceResults: Array<{ symbol: string; price: number }>) => {
+        setPortfolio(prev => {
+            if (!prev) return prev;
+
+            const priceMap = new Map(priceResults.map(result => [result.symbol, result.price]));
+
+            const updatedHoldings = prev.holdings.map(holding => {
+                const newPrice = priceMap.get(holding.symbol);
+                if (newPrice !== undefined) {
+                    const updatedMarketValue = holding.shares * newPrice;
+                    const totalCost = holding.shares * holding.averageCostBasis;
+                    const updatedGainLoss = updatedMarketValue - totalCost;
+                    const updatedGainLossPercent = (updatedGainLoss / totalCost) * 100;
+
+                    return {
+                        ...holding,
+                        currentPrice: newPrice,
+                        marketValue: updatedMarketValue,
+                        gainLoss: updatedGainLoss,
+                        gainLossPercent: updatedGainLossPercent,
+                    };
+                }
+                return holding;
+            });
+
+            // Recalculate portfolio totals
+            const totalMarketValue = updatedHoldings.reduce((sum, holding) =>
+                sum + ((holding as any).marketValue || holding.shares * ((holding as any).currentPrice || 0)), 0);
+            const totalCost = updatedHoldings.reduce((sum, holding) =>
+                sum + (holding.shares * holding.averageCostBasis), 0);
+            const totalGainLoss = totalMarketValue - totalCost;
+            const totalGainLossPercent = (totalGainLoss / totalCost) * 100;
+
+            return {
+                ...prev,
+                holdings: updatedHoldings as any,
+                totalValue: totalMarketValue,
+                totalGainLoss,
+                totalGainLossPercent,
+            };
+        });
+    }, []);
+
+    // Fetch prices for all portfolio stocks - priceResults as source of truth
+    const updateAllPrices = useCallback(async () => {
+        if (!portfolio) return;
+
+        const timestamp = new Date().toISOString();
+
+        try {
+            // Extract all symbols from portfolio holdings
+            const symbols = portfolio.holdings.map(holding => holding.symbol);
+
+            // Fetch all prices in a single batch call for better performance
+            const batchResult = await StockService.getMultipleStockPrices(symbols);
+
+            // Convert batch result to priceResults format
+            const priceResults: Array<{ symbol: string; price: number }> = [];
+
+            // Process successful prices
+            Object.entries(batchResult.prices).forEach(([symbol, priceInfo]) => {
+                priceResults.push({ symbol, price: priceInfo.price });
+                lastSuccessfulPrices.current[symbol] = priceInfo.price;
+            });
+
+            // Handle missing symbols with fallback to last successful prices
+            batchResult.missingSymbols.forEach(symbol => {
+                const lastPrice = lastSuccessfulPrices.current[symbol];
+                if (lastPrice) {
+                    priceResults.push({ symbol, price: lastPrice });
+                    console.warn(`Using cached price for ${symbol}: $${lastPrice}`);
+                } else {
+                    console.error(`No price available for ${symbol} and no cached price`);
+                }
+            });
+
+            // priceResults as source of truth - update history and portfolio separately
+            if (priceResults.length > 0) {
+                updatePriceHistory(priceResults, timestamp);
+                updatePortfolioWithPrices(priceResults);
+            }
+        } catch (error) {
+            console.error('Error updating all prices:', error);
+
+            // Log error but don't fallback to individual calls - batch is our only method
+            console.log('Batch price update failed. Prices will be updated on next cycle.');
+        }
+    }, [updatePriceHistory, updatePortfolioWithPrices]);
+
+    // Manual refresh for specific symbol
+    const handleManualRefresh = useCallback(async (symbol: string) => {
+        try {
+            // Use batch call even for single symbol for consistency
+            const batchResult = await StockService.getMultipleStockPrices([symbol]);
+            const priceInfo = batchResult.prices[symbol];
+
+            if (priceInfo !== undefined) {
+                lastSuccessfulPrices.current[symbol] = priceInfo.price;
+
+                const timestamp = new Date().toISOString();
+                const priceResult = { symbol, price: priceInfo.price };
+
+                // Use priceResults as source of truth - update history and portfolio separately
+                updatePriceHistory([priceResult], timestamp);
+                updatePortfolioWithPrices([priceResult]);
+            } else {
+                console.error(`No price data available for manual refresh of ${symbol}`);
+            }
+        } catch (error) {
+            console.error(`Error manually refreshing price for ${symbol}:`, error);
+        }
+    }, [updatePriceHistory, updatePortfolioWithPrices]); const handleShowChart = (holding: PortfolioHolding) => {
         setSelectedHolding(holding);
     };
 
@@ -356,82 +400,95 @@ export default function PortfolioDashboard() {
         console.log('Add new holding:', showAddHolding);
     };
 
-    // Initial portfolio data fetch with optimized price updates
+    // Initial portfolio data fetch
     const fetchPortfolioData = useCallback(async () => {
         try {
             setIsLoading(true);
 
-            // For now, use demo data (will be replaced with real API calls)
-            const portfolioData = await PortfolioService.getDemoPortfolio();
-            const summaryData = await PortfolioService.getDemoSummary();
+            // Get portfolio data from API (now includes summary data)
+            const portfolioData = await PortfolioService.getDefaultPortfolio();
 
-            // Update current prices from stock service
-            const updatedHoldings = await Promise.all(
-                portfolioData.holdings.map(async (holding) => {
-                    try {
-                        const currentPrice = await StockService.getStockPrice(holding.symbol);
+            // Extract all symbols from portfolio holdings
+            const symbols = portfolioData.holdings.map(holding => holding.symbol);
 
-                        // Store successful price for fallback
-                        lastSuccessfulPrices.current[holding.symbol] = currentPrice;
+            // Fetch all prices in a single batch call for better performance
+            let updatedHoldings = portfolioData.holdings;
 
-                        const updatedMarketValue = holding.shares * currentPrice;
-                        const updatedGainLoss = updatedMarketValue - holding.totalCost;
-                        const updatedGainLossPercent = (updatedGainLoss / holding.totalCost) * 100;
+            if (symbols.length > 0) {
+                try {
+                    const batchResult = await StockService.getMultipleStockPrices(symbols);
 
+                    // Update holdings with current prices from batch result
+                    updatedHoldings = portfolioData.holdings.map(holding => {
+                        const priceInfo = batchResult.prices[holding.symbol];
+
+                        if (priceInfo !== undefined) {
+                            // Store successful price for fallback
+                            lastSuccessfulPrices.current[holding.symbol] = priceInfo.price;
+
+                            const totalCost = holding.shares * holding.averageCostBasis;
+                            const updatedMarketValue = holding.shares * priceInfo.price;
+                            const updatedGainLoss = updatedMarketValue - totalCost;
+                            const updatedGainLossPercent = (updatedGainLoss / totalCost) * 100;
+
+                            return {
+                                ...holding,
+                                companyName: priceInfo.companyName,
+                                currentPrice: priceInfo.price,
+                                marketValue: updatedMarketValue,
+                                totalCost,
+                                gainLoss: updatedGainLoss,
+                                gainLossPercent: updatedGainLossPercent,
+                            };
+                        } else {
+                            console.warn(`No price data available for ${holding.symbol}, using default values`);
+                            const totalCost = holding.shares * holding.averageCostBasis;
+                            return {
+                                ...holding,
+                                companyName: holding.symbol, // Fallback to symbol
+                                currentPrice: holding.averageCostBasis, // Fallback to cost basis
+                                marketValue: totalCost,
+                                totalCost,
+                                gainLoss: 0,
+                                gainLossPercent: 0,
+                            };
+                        }
+                    });
+                } catch (error) {
+                    console.error('Error fetching batch prices during initialization:', error);
+                    console.log('Using portfolio data with fallback prices');
+                    // Create fallback holdings with cost basis as price
+                    updatedHoldings = portfolioData.holdings.map(holding => {
+                        const totalCost = holding.shares * holding.averageCostBasis;
                         return {
                             ...holding,
-                            currentPrice,
-                            marketValue: updatedMarketValue,
-                            gainLoss: updatedGainLoss,
-                            gainLossPercent: updatedGainLossPercent,
+                            companyName: holding.symbol, // Fallback to symbol
+                            currentPrice: holding.averageCostBasis,
+                            marketValue: totalCost,
+                            totalCost,
+                            gainLoss: 0,
+                            gainLossPercent: 0,
                         };
-                    } catch (error) {
-                        console.error(`Error updating price for ${holding.symbol}:`, error);
-                        return holding;
-                    }
-                })
-            );
+                    });
+                }
+            }
 
             // Recalculate portfolio totals
-            const totalMarketValue = updatedHoldings.reduce((sum, holding) => sum + holding.marketValue, 0);
-            const totalCost = updatedHoldings.reduce((sum, holding) => sum + holding.totalCost, 0);
+            const totalMarketValue = updatedHoldings.reduce((sum, holding) => sum + (holding as any).marketValue, 0);
+            const totalCost = updatedHoldings.reduce((sum, holding) => sum + (holding as any).totalCost, 0);
             const totalGainLoss = totalMarketValue - totalCost;
             const totalGainLossPercent = (totalGainLoss / totalCost) * 100;
 
-            // Update allocation percentages
-            const holdingsWithAllocation = updatedHoldings.map(holding => ({
-                ...holding,
-                allocationPercent: (holding.marketValue / totalMarketValue) * 100,
-            }));
-
             const updatedPortfolio: Portfolio = {
                 ...portfolioData,
-                holdings: holdingsWithAllocation,
-                totalValue: totalMarketValue,
-                totalGainLoss,
-                totalGainLossPercent,
-            };
-
-            const updatedSummary: PortfolioSummary = {
-                ...summaryData,
+                holdings: updatedHoldings as any,
                 totalValue: totalMarketValue,
                 totalGainLoss,
                 totalGainLossPercent,
             };
 
             setPortfolio(updatedPortfolio);
-            setSummary(updatedSummary);
             setError(null);
-
-            // Set up automatic price updates for each holding
-            updatedPortfolio.holdings.forEach(holding => {
-                if (priceUpdateTimeouts.current[holding.symbol]) {
-                    clearTimeout(priceUpdateTimeouts.current[holding.symbol]);
-                }
-                priceUpdateTimeouts.current[holding.symbol] = setTimeout(() => {
-                    handlePriceUpdate(holding.symbol);
-                }, 30000); // 30 seconds
-            });
 
         } catch (err) {
             setError('Failed to fetch portfolio data');
@@ -439,70 +496,41 @@ export default function PortfolioDashboard() {
         } finally {
             setIsLoading(false);
         }
-    }, [handlePriceUpdate]);
+    }, []);
 
-    // Function to update price history for charts
-    const updatePriceHistory = async () => {
-        if (!portfolio) return;
-
-        try {
-            const stockData = await StockService.getAllStocks();
-            const timestamp = new Date().toISOString();
-
-            setPriceHistory(prevHistory => {
-                const newHistory = { ...prevHistory };
-
-                portfolio.holdings.forEach(holding => {
-                    const stockInfo = stockData.find(stock => stock.symbol === holding.symbol);
-                    if (stockInfo) {
-                        if (!newHistory[holding.symbol]) {
-                            newHistory[holding.symbol] = [];
-                        }
-
-                        newHistory[holding.symbol].push({
-                            timestamp,
-                            price: stockInfo.price
-                        });
-
-                        // Keep only last 60 points (10 minutes at 10-second intervals)
-                        if (newHistory[holding.symbol].length > 60) {
-                            newHistory[holding.symbol] = newHistory[holding.symbol].slice(-60);
-                        }
-                    }
-                });
-
-                return newHistory;
-            });
-        } catch (err) {
-            console.error('Error updating price history:', err);
-        }
-    };
+    // Function to update price history for charts - no longer needed since updateAllPrices handles this
+    // Removed updatePriceHistory function
 
     // Effect for initial portfolio data load
     useEffect(() => {
         fetchPortfolioData();
-
-        // Cleanup function to clear all timeouts
-        return () => {
-            Object.values(priceUpdateTimeouts.current).forEach(timeout => {
-                clearTimeout(timeout);
-            });
-            priceUpdateTimeouts.current = {};
-        };
     }, [fetchPortfolioData]);
 
-    // Effect for chart history updates (every 10 seconds when modal is open)
+    // Effect for price updates every 10 seconds (only when auto-update is enabled)
     useEffect(() => {
-        if (!selectedHolding) return;
+        // Clear existing interval
+        if (priceUpdateIntervalRef.current) {
+            clearInterval(priceUpdateIntervalRef.current);
+            priceUpdateIntervalRef.current = null;
+        }
 
-        updatePriceHistory();
+        if (!portfolio || !autoUpdateEnabled) return;
 
-        const historyInterval = setInterval(() => {
-            updatePriceHistory();
-        }, 10000);
+        // Set up interval to update all prices every 10 seconds
+        priceUpdateIntervalRef.current = setInterval(() => {
+            updateAllPrices();
+        }, 10000); // 10 seconds
 
-        return () => clearInterval(historyInterval);
-    }, [selectedHolding, portfolio]);
+        // Initial price update when auto-update is enabled
+        updateAllPrices();
+
+        return () => {
+            if (priceUpdateIntervalRef.current) {
+                clearInterval(priceUpdateIntervalRef.current);
+                priceUpdateIntervalRef.current = null;
+            }
+        };
+    }, [portfolio?.id, autoUpdateEnabled]); // Only depend on portfolio ID and auto-update toggle
 
     if (isLoading) {
         return (
@@ -520,7 +548,7 @@ export default function PortfolioDashboard() {
         );
     }
 
-    if (!portfolio || !summary) {
+    if (!portfolio) {
         return (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-yellow-700">No portfolio data available</p>
@@ -531,18 +559,37 @@ export default function PortfolioDashboard() {
     return (
         <div className="space-y-6">
             {/* Portfolio Summary */}
-            <PortfolioSummaryCard summary={summary} />
+            <PortfolioSummaryCard portfolio={portfolio} />
 
             {/* Holdings Section */}
             <div className="bg-white rounded-lg shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-900">Your Holdings</h2>
-                    <button
-                        onClick={handleAddHolding}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        + Add Stock
-                    </button>
+                    <div className="flex items-center gap-4">
+                        {/* Auto-update toggle */}
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-gray-600">Auto-update prices:</label>
+                            <button
+                                onClick={() => setAutoUpdateEnabled(!autoUpdateEnabled)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${autoUpdateEnabled ? 'bg-blue-600' : 'bg-gray-200'
+                                    }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${autoUpdateEnabled ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                />
+                            </button>
+                            <span className="text-sm text-gray-500">
+                                {autoUpdateEnabled ? 'Every 10s' : 'Disabled'}
+                            </span>
+                        </div>
+                        <button
+                            onClick={handleAddHolding}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            + Add Stock
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -552,7 +599,7 @@ export default function PortfolioDashboard() {
                             holding={holding}
                             onShowChart={handleShowChart}
                             onEdit={handleEditHolding}
-                            onPriceUpdate={handlePriceUpdate}
+                            onManualRefresh={handleManualRefresh}
                         />
                     ))}
                 </div>
@@ -571,7 +618,7 @@ export default function PortfolioDashboard() {
                     <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-2xl font-bold text-gray-900">
-                                {selectedHolding.companyName} ({selectedHolding.symbol})
+                                {(selectedHolding as any).companyName || selectedHolding.symbol} ({selectedHolding.symbol})
                             </h2>
                             <button
                                 onClick={handleCloseChart}
@@ -589,20 +636,20 @@ export default function PortfolioDashboard() {
                             </div>
                             <div className="text-center">
                                 <p className="text-sm text-gray-500">Market Value</p>
-                                <p className="text-lg font-bold">${selectedHolding.marketValue.toLocaleString()}</p>
+                                <p className="text-lg font-bold">${((selectedHolding as any).marketValue || 0).toLocaleString()}</p>
                             </div>
                             <div className="text-center">
                                 <p className="text-sm text-gray-500">Gain/Loss</p>
-                                <p className={`text-lg font-bold ${selectedHolding.gainLoss >= 0 ? 'text-green-600' : 'text-red-600'
+                                <p className={`text-lg font-bold ${((selectedHolding as any).gainLoss || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                                     }`}>
-                                    {selectedHolding.gainLoss >= 0 ? '+' : ''}${selectedHolding.gainLoss.toLocaleString()}
+                                    {((selectedHolding as any).gainLoss || 0) >= 0 ? '+' : ''}${((selectedHolding as any).gainLoss || 0).toLocaleString()}
                                 </p>
                             </div>
                         </div>
 
                         <StockChart
                             symbol={selectedHolding.symbol}
-                            companyName={selectedHolding.companyName}
+                            companyName={(selectedHolding as any).companyName || selectedHolding.symbol}
                             priceHistory={priceHistory[selectedHolding.symbol] || []}
                         />
                     </div>
