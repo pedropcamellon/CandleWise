@@ -29,13 +29,22 @@ export class StockService {
     }
   }
 
-  static async getStockPrice(symbol: string): Promise<number> {
+  static async getMultipleStockPrices(symbols: string[]): Promise<{ 
+    prices: Record<string, { symbol: string; price: number; companyName: string }>; 
+    missingSymbols: string[]; 
+    timestamp: string 
+  }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/stock/${symbol}/price`, {
-        method: 'GET',
+      if (!symbols || symbols.length === 0) {
+        throw new Error('Symbols array is required and cannot be empty');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/stock/prices`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ symbols }),
       });
 
       if (!response.ok) {
@@ -47,9 +56,13 @@ export class StockService {
       }
 
       const data = await response.json();
-      return data.price;
+      return {
+        prices: data.data.prices,
+        missingSymbols: data.data.missingSymbols,
+        timestamp: data.data.timestamp,
+      };
     } catch (error) {
-      console.error(`Error fetching price for ${symbol}:`, error);
+      console.error(`Error fetching prices for symbols: ${symbols.join(', ')}:`, error);
       throw error;
     }
   }
