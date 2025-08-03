@@ -16,8 +16,19 @@ export interface Portfolio {
   name: string;
   description?: string;
   totalValue: number;
+  totalCost: number;
   totalGainLoss: number;
   totalGainLossPercent: number;
+  dayChange: number;
+  dayChangePercent: number;
+  topPerformer: {
+    symbol: string;
+    gainLossPercent: number;
+  } | null;
+  topLoser: {
+    symbol: string;
+    gainLossPercent: number;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
   holdings: PortfolioHolding[];
@@ -27,14 +38,8 @@ export interface PortfolioHolding {
   id: string;
   portfolioId: string;
   symbol: string;
-  companyName: string;
   shares: number;
   averageCostBasis: number;
-  currentPrice: number;
-  marketValue: number;
-  totalCost: number;
-  gainLoss: number;
-  gainLossPercent: number;
   allocationPercent: number;
   createdAt: Date;
   updatedAt: Date;
