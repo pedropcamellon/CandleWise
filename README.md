@@ -28,7 +28,7 @@ CandleWise has evolved from a simple stock price tracker into a comprehensive **
 
 ```
 CandleWise/
-├── 🔧 backend/          # ASP.NET Core 6 Web API
+├── 🔧 backend/          # ASP.NET Core 8 Web API
 ├── 🎨 frontend/         # Next.js 14 with TypeScript
 ├── 📝 shared/           # Shared TypeScript definitions
 ├── 🐳 docker-compose.yml
@@ -39,7 +39,7 @@ CandleWise/
 
 ### Prerequisites
 
-- **.NET 6.0 SDK**
+- **.NET 8.0 SDK**
 - **Node.js 18+**
 - **Docker** (optional)
 
@@ -62,7 +62,7 @@ CandleWise/
 
    ```bash
    cp .env.example .env
-   # Edit .env with your Alpaca API credentials
+   # Edit .env to configure your Alpaca API credentials
    ```
 
 4. **Start development servers**
@@ -77,16 +77,10 @@ CandleWise/
 
 ### Using PowerShell Scripts
 
+PowerShell script to set up Azure resources for CandleWise deployment
+
 ```powershell
-# Start development environment
-.\scripts\dev.ps1
 
-# Build all applications
-.\scripts\build.ps1
-
-# Docker management
-.\scripts\docker.ps1 up    # Start containers
-.\scripts\docker.ps1 down  # Stop containers
 ```
 
 ### Using Docker
@@ -101,7 +95,7 @@ npm run docker:down
 
 ## 🎯 Features
 
-### Backend (ASP.NET Core 6)
+### Backend (ASP.NET Core 8)
 
 - ✅ RESTful Web API
 - ✅ Real-time stock data from Alpaca Markets
@@ -110,7 +104,7 @@ npm run docker:down
 - ✅ CORS configuration for frontend
 - ✅ Docker containerization
 
-### Frontend (Next.js 14)
+### Frontend (Next.js 15)
 
 - ✅ Modern React with TypeScript
 - ✅ Tailwind CSS for styling
