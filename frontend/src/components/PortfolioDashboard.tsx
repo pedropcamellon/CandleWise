@@ -1,241 +1,25 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-    Portfolio,
-    PortfolioHolding,
-    StockHistoryPoint
-} from '../../../shared/types';
+
 import { PortfolioService } from '@/services/portfolioService';
 import { StockService } from '@/services/stockService';
+import HoldingCard from './HoldingCard';
+import PortfolioSummaryCard from './PortfolioSummaryCard';
 import StockChart from './StockChart';
 
-interface PortfolioSummaryCardProps {
-    portfolio: Portfolio;
-}
-
-function PortfolioSummaryCard({ portfolio }: PortfolioSummaryCardProps) {
-    const [currentPortfolio, setCurrentPortfolio] = useState(portfolio);
-
-    useEffect(() => {
-        setCurrentPortfolio(portfolio);
-    }, [portfolio]);
-
-    const gainLossColor = currentPortfolio.totalGainLoss >= 0 ? 'text-green-600' : 'text-red-600';
-    const dayChangeColor = currentPortfolio.dayChange >= 0 ? 'text-green-600' : 'text-red-600';
-
-    return (
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg p-6 text-white">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Total Portfolio Value */}
-                <div className="text-center">
-                    <h3 className="text-lg font-medium opacity-90">Total Portfolio Value</h3>
-                    <p className="text-3xl font-bold mt-2">${currentPortfolio.totalValue.toLocaleString()}</p>
-                    {currentPortfolio.dayChange !== undefined && currentPortfolio.dayChangePercent !== undefined ? (
-                        <div className={`flex items-center justify-center mt-2 ${dayChangeColor}`}>
-                            <span className="text-sm">
-                                {currentPortfolio.dayChange >= 0 ? '+' : ''}${currentPortfolio.dayChange.toFixed(2)}
-                                ({currentPortfolio.dayChangePercent >= 0 ? '+' : ''}{currentPortfolio.dayChangePercent.toFixed(2)}%) today
-                            </span>
-                        </div>
-                    ) : (
-                        <p className="text-sm opacity-75 mt-2">No data available</p>
-                    )}
-                </div>
-
-                {/* Total Gain/Loss */}
-                <div className="text-center">
-                    <h3 className="text-lg font-medium opacity-90">Total Gain/Loss</h3>
-                    <p className={`text-3xl font-bold mt-2 ${gainLossColor}`}>
-                        {currentPortfolio.totalGainLoss >= 0 ? '+' : ''}${currentPortfolio.totalGainLoss.toLocaleString()}
-                    </p>
-                    <div className={`mt-2 ${gainLossColor}`}>
-                        <span className="text-sm">
-                            ({currentPortfolio.totalGainLossPercent >= 0 ? '+' : ''}{currentPortfolio.totalGainLossPercent.toFixed(2)}%)
-                        </span>
-                    </div>
-                </div>
-
-                {/* Performance Highlights */}
-                <div className="text-center">
-                    <h3 className="text-lg font-medium opacity-90">Top Performer</h3>
-                    {currentPortfolio.topPerformer ? (
-                        <div className="mt-2">
-                            <p className="text-xl font-bold">{currentPortfolio.topPerformer.symbol}</p>
-                            <p className="text-green-400 text-sm">
-                                +{currentPortfolio.topPerformer.gainLossPercent.toFixed(2)}%
-                            </p>
-                        </div>
-                    ) : (
-                        <p className="text-sm opacity-75 mt-2">No data available</p>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-interface HoldingCardProps {
-    holding: PortfolioHolding;
-    onShowChart: (holding: PortfolioHolding) => void;
-    onEdit: (holding: PortfolioHolding) => void;
-    onManualRefresh: (symbol: string) => void;
-}
-
-function HoldingCard({ holding, onShowChart, onEdit, onManualRefresh }: HoldingCardProps) {
-    // Calculate initial values from simplified holding
-    const totalCost = holding.shares * holding.averageCostBasis;
-    const initialPrice = (holding as any).currentPrice || holding.averageCostBasis;
-    const initialMarketValue = (holding as any).marketValue || totalCost;
-    const initialGainLoss = (holding as any).gainLoss || 0;
-    const initialGainLossPercent = (holding as any).gainLossPercent || 0;
-    const companyName = (holding as any).companyName || holding.symbol;
-
-    const [currentPrice, setCurrentPrice] = useState(initialPrice);
-    const [marketValue, setMarketValue] = useState(initialMarketValue);
-    const [gainLoss, setGainLoss] = useState(initialGainLoss);
-    const [gainLossPercent, setGainLossPercent] = useState(initialGainLossPercent);
-    const [priceDirection, setPriceDirection] = useState<'up' | 'down' | 'same'>('same');
-    const [isRefreshing, setIsRefreshing] = useState(false);
-
-    const previousPriceRef = useRef(initialPrice);
-    const cardRef = useRef<HTMLDivElement>(null);
-
-    // Manual refresh for individual holding
-    const handleManualRefresh = async () => {
-        if (isRefreshing) return;
-        setIsRefreshing(true);
-        await onManualRefresh(holding.symbol);
-        setIsRefreshing(false);
-    };
-
-    // Update local state when holding prop changes (from parent price updates)
-    useEffect(() => {
-        const newPrice = (holding as any).currentPrice || holding.averageCostBasis;
-        const newMarketValue = (holding as any).marketValue || holding.shares * holding.averageCostBasis;
-        const newGainLoss = (holding as any).gainLoss || 0;
-        const newGainLossPercent = (holding as any).gainLossPercent || 0;
-
-        // Determine price direction for visual feedback
-        if (newPrice > previousPriceRef.current) {
-            setPriceDirection('up');
-        } else if (newPrice < previousPriceRef.current) {
-            setPriceDirection('down');
-        } else {
-            setPriceDirection('same');
-        }
-
-        setCurrentPrice(newPrice);
-        setMarketValue(newMarketValue);
-        setGainLoss(newGainLoss);
-        setGainLossPercent(newGainLossPercent);
-
-        // Add flash effect when price changes
-        if (newPrice !== previousPriceRef.current && cardRef.current) {
-            cardRef.current.classList.add('ring-2', 'ring-blue-400', 'ring-opacity-75');
-            setTimeout(() => {
-                if (cardRef.current) {
-                    cardRef.current.classList.remove('ring-2', 'ring-blue-400', 'ring-opacity-75');
-                }
-            }, 1000);
-        }
-
-        previousPriceRef.current = newPrice;
-    }, [holding]);
-
-    const gainLossColor = gainLoss >= 0 ? 'text-green-600' : 'text-red-600';
-    const priceChangeColor = priceDirection === 'up' ? 'text-green-600' :
-        priceDirection === 'down' ? 'text-red-600' : 'text-gray-900';
-
-    return (
-        <div
-            ref={cardRef}
-            className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-all duration-200"
-        >
-            {/* Header */}
-            <div className="flex justify-between items-start mb-4">
-                <div>
-                    <h3 className="text-xl font-bold text-gray-900">{holding.symbol}</h3>
-                    <p className="text-gray-600 text-sm">{companyName}</p>
-                </div>
-                <div className="text-right">
-                    <div className="flex items-center space-x-2">
-                        <span className={`text-lg font-bold ${priceChangeColor}`}>
-                            ${currentPrice.toFixed(2)}
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-end mt-1">
-                        {priceDirection === 'up' && <span className="text-green-600 text-sm">↗</span>}
-                        {priceDirection === 'down' && <span className="text-red-600 text-sm">↘</span>}
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                {/* Market Value */}
-                <div>
-                    <p className="text-sm text-gray-500">Market Value</p>
-                    <p className="text-lg font-bold text-gray-900">
-                        ${marketValue.toLocaleString()}
-                    </p>
-                </div>
-
-                {/* Shares & Allocation */}
-                <div>
-                    <p className="text-sm text-gray-500">Shares | Allocation</p>
-                    <p className="text-lg font-bold text-gray-900">
-                        {holding.shares} | {holding.allocationPercent.toFixed(1)}%
-                    </p>
-                </div>
-
-                {/* Gain/Loss */}
-                <div>
-                    <p className="text-sm text-gray-500">Gain/Loss</p>
-                    <p className={`text-lg font-bold ${gainLossColor}`}>
-                        {gainLoss >= 0 ? '+' : ''}${gainLoss.toLocaleString()}
-                    </p>
-                </div>
-
-                {/* Performance */}
-                <div>
-                    <p className="text-sm text-gray-500">Performance</p>
-                    <span className={`text-lg font-bold ${gainLossColor}`}>
-                        {gainLossPercent >= 0 ? '+' : ''}{gainLossPercent.toFixed(2)}%
-                    </span>
-                </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2 mt-4">
-                <button
-                    onClick={() => onShowChart(holding)}
-                    className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                    📊 Chart
-                </button>
-                <button
-                    onClick={() => onEdit(holding)}
-                    className="flex-1 bg-gray-600 text-white px-3 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm"
-                >
-                    ✏️ Edit
-                </button>
-                <button
-                    onClick={handleManualRefresh}
-                    disabled={isRefreshing}
-                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm disabled:opacity-50"
-                >
-                    {isRefreshing ? '↻' : '⟳'}
-                </button>
-            </div>
-        </div>
-    );
-}
+// Types
+import {
+    Portfolio,
+    PortfolioHoldingWithUI,
+    StockHistoryPoint
+} from '../../../shared/types';
 
 export default function PortfolioDashboard() {
     const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedHolding, setSelectedHolding] = useState<PortfolioHolding | null>(null);
+    const [selectedHolding, setSelectedHolding] = useState<PortfolioHoldingWithUI | null>(null);
     const [priceHistory, setPriceHistory] = useState<Record<string, StockHistoryPoint[]>>({});
     const [showAddHolding, setShowAddHolding] = useState(false);
     const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(false);
@@ -297,15 +81,15 @@ export default function PortfolioDashboard() {
 
             // Recalculate portfolio totals
             const totalMarketValue = updatedHoldings.reduce((sum, holding) =>
-                sum + ((holding as any).marketValue || holding.shares * ((holding as any).currentPrice || 0)), 0);
+                sum + ((holding as PortfolioHoldingWithUI).marketValue ?? holding.shares * ((holding as PortfolioHoldingWithUI).currentPrice ?? 0)), 0);
             const totalCost = updatedHoldings.reduce((sum, holding) =>
-                sum + (holding.shares * holding.averageCostBasis), 0);
+                sum + ((holding as PortfolioHoldingWithUI).totalCost ?? holding.shares * holding.averageCostBasis), 0);
             const totalGainLoss = totalMarketValue - totalCost;
             const totalGainLossPercent = (totalGainLoss / totalCost) * 100;
 
             return {
                 ...prev,
-                holdings: updatedHoldings as any,
+                holdings: updatedHoldings,
                 totalValue: totalMarketValue,
                 totalGainLoss,
                 totalGainLossPercent,
@@ -357,7 +141,7 @@ export default function PortfolioDashboard() {
             // Log error but don't fallback to individual calls - batch is our only method
             console.log('Batch price update failed. Prices will be updated on next cycle.');
         }
-    }, [updatePriceHistory, updatePortfolioWithPrices]);
+    }, [portfolio, updatePriceHistory, updatePortfolioWithPrices]);
 
     // Manual refresh for specific symbol
     const handleManualRefresh = useCallback(async (symbol: string) => {
@@ -381,7 +165,9 @@ export default function PortfolioDashboard() {
         } catch (error) {
             console.error(`Error manually refreshing price for ${symbol}:`, error);
         }
-    }, [updatePriceHistory, updatePortfolioWithPrices]); const handleShowChart = (holding: PortfolioHolding) => {
+    }, [updatePriceHistory, updatePortfolioWithPrices]);
+
+    const handleShowChart = (holding: PortfolioHoldingWithUI) => {
         setSelectedHolding(holding);
     };
 
@@ -389,9 +175,9 @@ export default function PortfolioDashboard() {
         setSelectedHolding(null);
     };
 
-    const handleEditHolding = (holding: PortfolioHolding) => {
-        console.log('Edit holding:', holding);
-        // TODO: Implement edit holding modal
+    const handleEditHolding = (holding: PortfolioHoldingWithUI) => {
+        setSelectedHolding(holding);
+        setShowAddHolding(true);
     };
 
     const handleAddHolding = () => {
@@ -474,14 +260,14 @@ export default function PortfolioDashboard() {
             }
 
             // Recalculate portfolio totals
-            const totalMarketValue = updatedHoldings.reduce((sum, holding) => sum + (holding as any).marketValue, 0);
-            const totalCost = updatedHoldings.reduce((sum, holding) => sum + (holding as any).totalCost, 0);
+            const totalMarketValue = updatedHoldings.reduce((sum, holding) => sum + ((holding as PortfolioHoldingWithUI).marketValue ?? 0), 0);
+            const totalCost = updatedHoldings.reduce((sum, holding) => sum + ((holding as PortfolioHoldingWithUI).totalCost ?? holding.shares * holding.averageCostBasis), 0);
             const totalGainLoss = totalMarketValue - totalCost;
             const totalGainLossPercent = (totalGainLoss / totalCost) * 100;
 
             const updatedPortfolio: Portfolio = {
                 ...portfolioData,
-                holdings: updatedHoldings as any,
+                holdings: updatedHoldings,
                 totalValue: totalMarketValue,
                 totalGainLoss,
                 totalGainLossPercent,
@@ -497,9 +283,6 @@ export default function PortfolioDashboard() {
             setIsLoading(false);
         }
     }, []);
-
-    // Function to update price history for charts - no longer needed since updateAllPrices handles this
-    // Removed updatePriceHistory function
 
     // Effect for initial portfolio data load
     useEffect(() => {
@@ -530,7 +313,7 @@ export default function PortfolioDashboard() {
                 priceUpdateIntervalRef.current = null;
             }
         };
-    }, [portfolio?.id, autoUpdateEnabled]); // Only depend on portfolio ID and auto-update toggle
+    }, [portfolio, autoUpdateEnabled, updateAllPrices]);
 
     if (isLoading) {
         return (
@@ -618,7 +401,7 @@ export default function PortfolioDashboard() {
                     <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-2xl font-bold text-gray-900">
-                                {(selectedHolding as any).companyName || selectedHolding.symbol} ({selectedHolding.symbol})
+                                {selectedHolding.companyName || selectedHolding.symbol} ({selectedHolding.symbol})
                             </h2>
                             <button
                                 onClick={handleCloseChart}
@@ -636,20 +419,20 @@ export default function PortfolioDashboard() {
                             </div>
                             <div className="text-center">
                                 <p className="text-sm text-gray-500">Market Value</p>
-                                <p className="text-lg font-bold">${((selectedHolding as any).marketValue || 0).toLocaleString()}</p>
+                                <p className="text-lg font-bold">${(selectedHolding.marketValue || 0).toLocaleString()}</p>
                             </div>
                             <div className="text-center">
                                 <p className="text-sm text-gray-500">Gain/Loss</p>
-                                <p className={`text-lg font-bold ${((selectedHolding as any).gainLoss || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                                <p className={`text-lg font-bold ${(selectedHolding.gainLoss || 0) >= 0 ? 'text-green-600' : 'text-red-600'
                                     }`}>
-                                    {((selectedHolding as any).gainLoss || 0) >= 0 ? '+' : ''}${((selectedHolding as any).gainLoss || 0).toLocaleString()}
+                                    {(selectedHolding.gainLoss || 0) >= 0 ? '+' : ''}${(selectedHolding.gainLoss || 0).toLocaleString()}
                                 </p>
                             </div>
                         </div>
 
                         <StockChart
                             symbol={selectedHolding.symbol}
-                            companyName={(selectedHolding as any).companyName || selectedHolding.symbol}
+                            companyName={selectedHolding.companyName || selectedHolding.symbol}
                             priceHistory={priceHistory[selectedHolding.symbol] || []}
                         />
                     </div>

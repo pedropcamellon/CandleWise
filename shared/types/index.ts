@@ -45,6 +45,16 @@ export interface PortfolioHolding {
   updatedAt: Date;
 }
 
+// Extend PortfolioHolding to include optional UI fields
+export type PortfolioHoldingWithUI = PortfolioHolding & {
+  currentPrice?: number;
+  marketValue?: number;
+  gainLoss?: number;
+  gainLossPercent?: number;
+  companyName?: string;
+  totalCost?: number;
+};
+
 export interface Transaction {
   id: string;
   portfolioId: string;
